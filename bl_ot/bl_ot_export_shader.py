@@ -210,7 +210,6 @@ def export_json():
     with path_result_json.open(mode='w') as f_result_json:
         f_result_json.write(json.dumps(json_template))
 
-
 class ERNST_OT_Export_JSON(Operator):
     bl_idname = 'ernst.export_json'
     bl_label = 'Write Shadertoy JSON.'
