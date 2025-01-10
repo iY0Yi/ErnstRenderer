@@ -1,3 +1,5 @@
+# https://github.com/KoltesDigital/shiba/blob/master/blender/shiba/notifications.py
+
 import time
 from threading import Lock, Thread
 
