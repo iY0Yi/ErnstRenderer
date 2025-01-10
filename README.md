@@ -1,2 +1,2 @@
 # Ernst Renderer
-##A GLSL renderer addon for Blender.
+## A GLSL renderer addon for Blender.
