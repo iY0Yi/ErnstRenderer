@@ -1,0 +1,62 @@
+// "camera": create camera vectors.
+// ---------------------------------------------------------------------
+void pRotQuat(inout vec3 p, vec4 quat){
+    p = p + 2. * cross(quat.xyz, cross(quat.xyz, p) + quat.w * p);
+}
+
+void perspectiveCam(vec2 uv){
+    vec3 up = vec3(0,1,0);
+    vec3 dir = vec3(0,0,-1);
+    pRotQuat(up, cam0.quaternion);
+    pRotQuat(dir, cam0.quaternion);
+    up = up.xzy, dir = dir.xzy;
+    vec3 pos = cam0.position;
+    float fov = cam0.fov;
+    vec3 target = pos-dir;
+
+    vec3 cw = normalize(target - pos);
+    vec3 cu = normalize(cross(cw, up));
+    vec3 cv = normalize(cross(cu, cw));
+
+    cam0.up = up;
+
+    mat3 camMat = mat3(cu, cv, cw);
+    ray.origin = pos;
+    ray.direction = normalize(camMat * normalize(vec3(sin(fov) * uv.x, sin(fov) * uv.y, -cos(fov))));
+}
+
+void orthographicCam(vec2 uv){
+    vec3 up = vec3(0,1,0);
+    vec3 dir = vec3(0,0,-1);
+    pRotQuat(up, cam0.quaternion);
+    pRotQuat(dir, cam0.quaternion);
+    up = up.xzy, dir = dir.xzy;
+    cam0.up = up;
+
+    vec3 pos = dir*100.;
+
+    vec3 cw = normalize(dir - pos);
+    vec3 cu = normalize(cross(cw, up));
+    vec3 cv = normalize(cross(cu, cw));
+
+    uv *= cam0.orthoScale/cam0.orthoDist;
+
+    float perspective = 1.5;
+    float fv = acos(dot(cw, normalize(cu * uv.x)));
+    float screenSize = (cam0_orthoDist*perspective / (2. * tan(abs(fv) / 2.)));
+    vec3 virtscreen = pos + cw * 2. + (cu * uv.x + cv * uv.y) * screenSize;
+
+    ray.origin = -pos + (cu * uv.x + cv * uv.y) * (.7 + .2 * perspective) * screenSize;
+    ray.direction = normalize(virtscreen - ray.origin);
+    ray.origin+=cam0_pivot.xzy-ray.direction*50.;
+}
+
+
+void camera(vec2 uv){
+
+                if(cam0_is_perspective)
+                    perspectiveCam(uv);
+                else
+                    orthographicCam(uv);
+            
+}

@@ -1,0 +1,28 @@
+// "init": init camera/lights.
+// ---------------------------------------------------------------------
+Ray ray;
+Camera cam0;
+Light lit0;Light lit1;
+void init(){
+
+            cam0.position = cam0_position;
+            cam0.quaternion = cam0_quaternion;
+            cam0.fov = cam0_fov;
+            cam0.orthoDist = cam0_orthoDist;
+            cam0.orthoScale = cam0_orthoScale;
+            
+            lit0.direction = lit0_direction;
+            lit0.color = lit0_color;
+            lit0.intensity = lit0_intensity;
+            lit0.shadowStart = lit0_shadow_min;
+            lit0.shadowEnd = lit0_shadow_max;
+            lit0.shadowSoft = lit0_shadow_softness;
+            
+            lit1.direction = lit1_direction;
+            lit1.color = lit1_color;
+            lit1.intensity = lit1_intensity;
+            lit1.shadowStart = lit1_shadow_min;
+            lit1.shadowEnd = lit1_shadow_max;
+            lit1.shadowSoft = lit1_shadow_softness;
+            
+}

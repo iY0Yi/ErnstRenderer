@@ -1,0 +1,118 @@
+// SDF functions
+// ---------------------------------------------------------------------
+
+
+
+
+
+float sdEllipsoid(vec3 p, vec3 r){
+	float k0 = length(p/r);
+  float k1 = length(p/(r*r));
+  return k0*(k0-1.)/k1;
+}
+
+
+
+
+
+
+
+
+
+float bUni(float a,float b){
+  return a<b?a:b;
+}
+vec4 bUni(vec4 a,vec4 b){
+  return a.x<b.x?a:b;
+}
+
+float bUniS(float a,float b,float r){
+  r*=1.35;
+  float h = max(r-abs(a-b), 0.)/r;
+  return min(a, b) - h*h*h*r*(1./6.);
+}
+vec4 bUniS(vec4 a,vec4 b,float r){
+  float h=clamp(.5+.5*(b.x-a.x)/r,0.,1.);
+  float res = mix(b.x,a.x,h)-r*h*(1.-h);
+  return vec4(res, mix(b.yzw,a.yzw,h));
+}
+
+
+
+
+float bSub(float a,float b){
+  return max(-a, b);
+}
+vec4 bSub(vec4 a,vec4 b){
+  float res = max(-a.x, b.x);
+  return (res==-a.x)?vec4(-a.x, a.yzw):b;
+}
+
+float bSubS(float a,float b,float r){
+  r*=1.35;
+  a = -a;
+  float h = max(r-abs(a-b), 0.)/r;
+  return max(a, b) + h*h*h*r*(1./6.);
+}
+vec4 bSubS(vec4 a,vec4 b,float r){
+  r*=1.35;
+  a.x = -a.x;
+  float h = max(r-abs(a.x-b.x), 0.)/r;
+  float res = max(a.x, b.x) + h*h*h*r*(1./6.);
+  vec3 m = mix(b.yzw, a.yzw, clamp(abs(-b.x)+abs(res),0.,1.)*clamp(r,0.,1.));
+  return vec4(res, m);
+}
+
+
+
+
+
+
+
+
+
+vec2 pRot(inout vec2 p, float a){
+  p=cos(a)*p+sin(a)*vec2(p.y, -p.x);
+  return p;
+}
+
+vec3 pRot(inout vec3 p, vec3 r){
+  #define r2d(v, a) v=cos(a)*v+sin(a)*vec2(v.y, -v.x)
+  r2d(p.xz, r.y);
+  r2d(p.yx, r.z);
+  r2d(p.zy, r.x);
+  return p;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include ../uber_scripts/sdf3d/prim_sd_hand.frag
+#include ../uber_scripts/sdf3d/inc_terrain_eroded.glsl
+
+
+
+vec4 sdScene(vec3 p){
+	float d = MAX_DIST;
+	vec4 res = vec4(MAX_DIST, MAT_VOID);
+
+vec3 sdEllipsoid000_p = p;
+sdEllipsoid000_p.xyz += sdEllipsoid000_position;
+pRot(sdEllipsoid000_p, sdEllipsoid000_rotation);
+
+d = sdEllipsoid(sdEllipsoid000_p, sdEllipsoid000_dimensions);
+res = bUni(vec4(d, MAT_ERNST0_COL), res);
+
+	return res;
+}
