@@ -30,10 +30,10 @@ class ERNST_PG_SDF3D_ConeRound(PropertyGroup, ERNST_PG_SDF_Abstract):
         col = layout.column(align = True)
         obj = self.id_data
         props = bpy.data.objects[obj.name]
-        wdata = props.data.wData
-        col.prop(wdata, "rad_2", text="Radius Top")
-        col.prop(wdata, "rad_1", text="Radius Main")
-        col.prop(wdata, "siz_z", text="Height")
+        wdata = props.data.WCone
+        col.prop(wdata, "rad_top", text="Radius Top")
+        col.prop(wdata, "rad_main", text="Radius Main")
+        col.prop(wdata, "height", text="Height")
 
         box = self.draw_property_box(layout)
 
@@ -77,19 +77,24 @@ class ERNST_PG_SDF3D_ConeRound(PropertyGroup, ERNST_PG_SDF_Abstract):
         obj = self.id_data
         if not is_renderable(obj):
            return
+        props = bpy.data.objects[obj.name]
+        wdata = props.data.WCone
+        rad_top = wdata.rad_top
+        rad_main = wdata.rad_main
+        height = wdata.height
         u_names = self.get_uniform_names()
         if ubo.enabled:
             if not obj.name in is_dirty:
                 self.set_dirty(True)
             if is_dirty[obj.name] or ubo.is_dirty:
-                ubo.data[u_names['radiuses_height']] = (obj.data.wData.rad_2*obj.scale[0], obj.data.wData.rad_1*obj.scale[0], obj.dimensions[2]*.5+obj.data.wData.rad_1*obj.scale[0]+obj.data.wData.rad_2*obj.scale[0],0)
+                ubo.data[u_names['radiuses_height']] = (rad_top*obj.scale[0], rad_main*obj.scale[0], obj.dimensions[2]*.5+rad_top*obj.scale[0]+rad_main*obj.scale[0],0)
                 self.update_ubo_shell()
                 self.update_ubo_boolean()
                 self.set_dirty(False)
         else:
-            uniform_float(shader, u_names['radius_top'], obj.data.wData.rad_2*obj.scale[0])
-            uniform_float(shader, u_names['radius_bottom'], obj.data.wData.rad_1*obj.scale[0])
-            uniform_float(shader, u_names['height'], obj.dimensions[2]*.5+obj.data.wData.rad_1*obj.scale[0]+obj.data.wData.rad_2*obj.scale[0])
+            uniform_float(shader, u_names['radius_top'], rad_top*obj.scale[0])
+            uniform_float(shader, u_names['radius_bottom'], rad_main*obj.scale[0])
+            uniform_float(shader, u_names['height'], obj.dimensions[2]*.5+rad_top*obj.scale[0]+rad_main*obj.scale[0])
             self.update_shell_uniforms(shader)
             self.update_boolean_uniforms(shader)
         obj.ernst.pmods.update_uniforms(shader, obj)
@@ -98,6 +103,12 @@ class ERNST_PG_SDF3D_ConeRound(PropertyGroup, ERNST_PG_SDF_Abstract):
         obj = self.id_data
         if not is_renderable(obj):
             return ''
+
+        props = bpy.data.objects[obj.name]
+        wdata = props.data.WCone
+        rad_top = wdata.rad_top
+        rad_main = wdata.rad_main
+        height = wdata.height
         u_names = self.get_uniform_names()
 
         loader = sgd.module_lib.sdf3d[obj.ernst.type]
@@ -105,9 +116,9 @@ class ERNST_PG_SDF3D_ConeRound(PropertyGroup, ERNST_PG_SDF_Abstract):
 
         domain = self.get_code_domain()
         if is_fixed(obj):
-            radius_top = er_f(obj.data.wData.rad_2*obj.scale[0])
-            radius_bottom = er_f(obj.data.wData.rad_1*obj.scale[0])
-            height = er_f(obj.dimensions[2]*.5+obj.data.wData.rad_1*obj.scale[0]+obj.data.wData.rad_2*obj.scale[0])
+            radius_top = er_f(rad_main*obj.scale[0])
+            radius_bottom = er_f(rad_top*obj.scale[0])
+            height = er_f(obj.dimensions[2]*.5+rad_top*obj.scale[0]+rad_main*obj.scale[0])
         else:
             if ubo.enabled:
                 radius_top = '('+ubo.name(u_names['radiuses_height'])+'.x)'

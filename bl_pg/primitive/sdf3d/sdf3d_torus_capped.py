@@ -37,9 +37,9 @@ class ERNST_PG_SDF3D_TorusCapped(PropertyGroup, ERNST_PG_SDF_Abstract):
         col = layout.column(align = True)
         obj = self.id_data
         props = bpy.data.objects[obj.name]
-        wdata = props.data.wData
-        col.prop(wdata, "rad_1", text="Radius Main")
-        col.prop(wdata, "rad_2", text="Minor")
+        wdata = props.data.WTorus
+        col.prop(wdata, "radius_main", text="Radius Main")
+        col.prop(wdata, "radius_minor", text="Minor")
         col.prop(self, 'percentage', text='Percentage')
 
         box = self.draw_property_box(layout)

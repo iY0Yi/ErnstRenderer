@@ -29,9 +29,9 @@ class ERNST_PG_SDF3D_Capsule(PropertyGroup, ERNST_PG_SDF_Abstract):
         col = layout.column(align = True)
         obj = self.id_data
         props = bpy.data.objects[obj.name]
-        wdata = props.data.wData
-        col.prop(wdata, "rad_1", text="Radius")
-        col.prop(wdata, "siz_z", text="Height")
+        wdata = props.data.WCapsule
+        col.prop(wdata, "radius", text="Radius")
+        col.prop(wdata, "height", text="Height")
 
         box = self.draw_property_box(layout)
 
