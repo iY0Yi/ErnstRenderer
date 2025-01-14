@@ -11,21 +11,20 @@ from ..bl_ot.shadergen.shaderizer import shaderizer_watcher
 from ..util.util import *
 from .buffer.bl_pg_buffer import ERNST_PG_Buffer
 
-import addon_utils
+from pathlib import Path
+
+def get_addon_root_directory():
+    # このスクリプトファイルの絶対パスを取得し、Pathオブジェクトに変換
+    current_file_path = Path(__file__).resolve()
+    # アドオンのルートディレクトリを取得（親ディレクトリを辿る）
+    addon_root_directory = current_file_path.parent.parent
+    return addon_root_directory
 
 @persistent
 def touch_project_files(dummy):
     print('touch_project_files')
     if bpy.data.scenes['Scene'].render.engine == 'ERNST':
-        # filepath = ''
-        # for mod in addon_utils.modules():
-        #     if mod.bl_info['name'] == "ernst_renderer":
-        #         filepath = mod.__file__
-        #         print (filepath)
-        #     else:
-        #         pass
-        # sgd.dir_addon = pathlib.Path(filepath)
-        sgd.dir_addon = pathlib.Path( bpy.context.preferences.filepaths.script_directories['iy0yi_dev'].directory)/'addons/ernst_renderer'
+        sgd.dir_addon = get_addon_root_directory()
         sgd.dir_org_root = sgd.dir_addon / '_shadertrack_templates'
         sgd.dir_org_bl_templates = sgd.dir_org_root / 'bl_templates'
         sgd.dir_org_lib_modules = sgd.dir_org_root / 'lib_modules'
@@ -37,6 +36,11 @@ def touch_project_files(dummy):
         sgd.dir_trk_lib_modules = sgd.dir_trk_root / 'lib_modules'
         sgd.dir_trk_uber_scripts = sgd.dir_trk_root / 'uber_scripts'
         sgd.dir_trk_bl_modules = sgd.dir_trk_root / 'bl_modules'
+
+        if sgd.dir_trk_root.exists():
+            print(f"Directory '{sgd.dir_trk_root}' already exists. Skipping.")
+            return
+
         makeDir(sgd.dir_working)
         makeDir(sgd.dir_trk_root)
         makeDir(sgd.dir_trk_bl_modules)
