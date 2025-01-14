@@ -1,0 +1,23 @@
+// "init": init camera/lights.
+// ---------------------------------------------------------------------
+Ray ray;
+Camera cam0;
+Light lit0;
+void init(){
+
+                cam0.position = ubo.cam0_position.xyz;
+                cam0.pivot = ubo.cam0_pivot.xyz;
+                cam0.quaternion = ubo.cam0_quaternion;
+                cam0.is_perspective = bool(ubo.cam0_props.x);
+                cam0.fov = ubo.cam0_props.y;
+                cam0.orthoDist = ubo.cam0_props.z;
+                cam0.orthoScale = ubo.cam0_props.w;
+                
+                lit0.direction = ubo.lit0_direction.xyz;
+                lit0.color = ubo.lit0_color.rgb;
+                lit0.intensity = ubo.lit0_color.a;
+                lit0.shadowStart = ubo.lit0_shadow.x;
+                lit0.shadowEnd = ubo.lit0_shadow.y;
+                lit0.shadowSoft = ubo.lit0_shadow.z;
+                
+}

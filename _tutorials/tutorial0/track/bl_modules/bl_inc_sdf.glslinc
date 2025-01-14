@@ -1,0 +1,198 @@
+//SDF functions
+#include ../lib_modules/colorblending/oklab_mix.glsl
+#include ../lib_modules/colorblending/sub_mix.glsl
+#include ../lib_modules/colorblending/ryb_mix.glsl
+#include ../lib_modules/colorblending/perceptual_mix.glsl
+#include ../lib_modules/colorblending/hsv_mix.glsl
+#include ../lib_modules/colorblending/lch_mix.glsl
+#include ../lib_modules/colorblending/nmz_mix.glsl
+#include ../lib_modules/colorblending/pow_mix.glsl
+
+
+
+float sdSphere(vec3 p,float r){
+	return length(p)-r;
+}
+
+float sdPlane(vec3 p){
+	return p.y;
+}
+
+float sdBox( vec3 p, vec3 b){
+  p = abs(p) - b;
+  return length(max(p,0.)) + min(max(p.x,max(p.y,p.z)),0.);
+}
+
+float sdEllipsoid(vec3 p, vec3 r){
+	float k0 = length(p/r);
+  float k1 = length(p/(r*r));
+  return k0*(k0-1.)/k1;
+}
+
+float sdTorus(vec3 p, vec2 t){
+	vec2 q = vec2(length(p.xz)-t.x,p.y);
+	return length(q)-t.y;
+}
+
+float sdCappedTorus(vec3 p, vec2 r, float per){
+	p.x = abs(p.x);
+	vec2 sc = vec2(sin(per),cos(per));
+	float k = (sc.y*p.x>sc.x*p.z) ? dot(p.xz,sc) : length(p.xz);
+	return sqrt(dot(p,p) + r.x*r.x - 2.*r.x*k) - r.y;
+}
+
+float sdCappedCylinder(vec3 p, vec2 h){
+	vec2 d = abs(vec2(length(p.xz),p.y)) - h;
+	return ((min(max(d.x,d.y),0.) + length(max(d,0.))));
+}
+
+float sdPieCylinder(vec3 p, float r, float h, float per){
+	per = mod(per, PI);
+	vec2 c = vec2(sin(per),cos(per));
+	p.xz=c.y*p.xz+c.x*vec2(p.z,-p.x); // rotation
+	p.x = abs(p.x);
+	float l = length(p.xz) - r;
+	float m = length(p.xz-c*clamp(dot(p.xz,c),0., r));
+	float x = max(l,m*sign(c.y*p.x-c.x*p.z));
+	float y = abs(p.y) - h;
+	return ((min(max(x,y),0.) + length(max(vec2(x,y),0.))));
+}
+
+
+
+
+
+vec4 bUni(vec4 a, vec4 b) {
+  return a.w < b.w ? a : b;
+}
+
+float bUniS(float a, float b, float r) {
+  r *= 1.35;
+  float h = max(r - abs(a - b), 0.) / r;
+  return min(a, b) - h * h * h * r * (1. / 6.);
+}
+vec4 bUniS(vec4 a, vec4 b, float r) {
+  // float h = clamp(.5 + .5 * (b.w - a.w) / r, 0., 1.);
+  float h = smoothstep(0., 1., .5 + .5 * (b.w - a.w) / r);
+  float d = mix(b.w, a.w, h) - r * h * (1. - h);
+  return vec4(pow_mix(b.rgb, a.rgb, h), d);
+}
+
+
+
+
+vec4 bSub(vec4 a, vec4 b) {
+  return (max(-a.w, b.w) == -a.w) ? vec4(a.rgb, -a.w) : b;
+}
+
+
+
+
+
+
+
+
+
+
+
+vec3 pRot(inout vec3 p, vec3 r){
+  #define r2d(v, a) v=cos(a)*v+sin(a)*vec2(v.y, -v.x)
+  r2d(p.xz, r.y);
+  r2d(p.yx, r.z);
+  r2d(p.zy, r.x);
+  return p;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+vec4 sdScene(vec3 p) {
+  float d = MAX_DIST;
+  vec4 res = vec4(MAT_VOID, d);
+  vec3 sdSphere02_p = p;
+sdSphere02_p.xyz += ubo.sdSphere02_position.xyz;
+
+d = sdSphere(sdSphere02_p, (ubo.sdSphere02_radius.x));res = bUni(vec4(MAT_ERNST0_011_COL, d), res);
+vec3 sdSphere03_p = p;
+sdSphere03_p.xyz += ubo.sdSphere03_position.xyz;
+
+d = sdSphere(sdSphere03_p, (ubo.sdSphere03_radius.x));res = bUniS(vec4(MAT_ERNST0_010_COL, d), res, (ubo.sdSphere03_boolean.x));
+vec3 sdSphere03_001_p = p;
+sdSphere03_001_p.xyz += ubo.sdSphere03_001_position.xyz;
+
+d = sdSphere(sdSphere03_001_p, (ubo.sdSphere03_001_radius.x));res = bUniS(vec4(MAT_ERNST0_014_COL, d), res, (ubo.sdSphere03_001_boolean.x));
+vec3 sdBox00_p = p;
+sdBox00_p.xyz += ubo.sdBox00_position.xyz;
+pRot(sdBox00_p, ubo.sdBox00_rotation.xyz);
+
+d = sdBox(sdBox00_p, (ubo.sdBox00_dimensions.xyz)-(ubo.sdBox00_round.x))-(ubo.sdBox00_round.x);vec3 sdBox00_001_p = p;
+sdBox00_001_p.xyz += ubo.sdBox00_001_position.xyz;
+pRot(sdBox00_001_p, ubo.sdBox00_001_rotation.xyz);
+
+d = bUniS(sdBox(sdBox00_001_p, (ubo.sdBox00_001_dimensions.xyz)-(ubo.sdBox00_001_round.x))-(ubo.sdBox00_001_round.x), d, (ubo.sdBox00_001_boolean.x));res = bUniS(vec4(MAT_ERNST0_007_COL, d), res, (ubo.sdBox00_001_boolean.x));
+vec3 sdCappedCylinder00_p = p;
+sdCappedCylinder00_p.xyz += ubo.sdCappedCylinder00_position.xyz;
+pRot(sdCappedCylinder00_p, ubo.sdCappedCylinder00_rotation.xyz);
+
+d = sdCappedCylinder(sdCappedCylinder00_p, vec2((ubo.sdCappedCylinder00_radius_height.x), (ubo.sdCappedCylinder00_radius_height.y))-(ubo.sdCappedCylinder00_round.x))-(ubo.sdCappedCylinder00_round.x);res = bUniS(vec4(MAT_ERNST0_003_COL, d), res, (ubo.sdCappedCylinder00_boolean.x));
+vec3 sdCappedTorus00_p = p;
+sdCappedTorus00_p.xyz += ubo.sdCappedTorus00_position.xyz;
+pRot(sdCappedTorus00_p, ubo.sdCappedTorus00_rotation.xyz);
+
+d = sdCappedTorus(sdCappedTorus00_p, vec2((ubo.sdCappedTorus00_radiuses_percentage.x), (ubo.sdCappedTorus00_radiuses_percentage.y)), (ubo.sdCappedTorus00_radiuses_percentage.z));res = bUniS(vec4(MAT_ERNST0_004_COL, d), res, (ubo.sdCappedTorus00_boolean.x));
+vec3 sdEllipsoid00_p = p;
+sdEllipsoid00_p.xyz += ubo.sdEllipsoid00_position.xyz;
+pRot(sdEllipsoid00_p, ubo.sdEllipsoid00_rotation.xyz);
+
+d = sdEllipsoid(sdEllipsoid00_p, (ubo.sdEllipsoid00_dimensions.xyz));res = bUniS(vec4(MAT_ERNST0_005_COL, d), res, (ubo.sdEllipsoid00_boolean.x));
+vec3 sdPlane00_p = p;
+sdPlane00_p.xyz += ubo.sdPlane00_position.xyz;
+pRot(sdPlane00_p, ubo.sdPlane00_rotation.xyz);
+
+d = sdPlane(sdPlane00_p);res = bUniS(vec4(MAT_ERNST0_002_COL, d), res, (ubo.sdPlane00_boolean.x));
+vec3 sdSphere00_p = p;
+sdSphere00_p.xyz += ubo.sdSphere00_position.xyz;
+
+d = sdSphere(sdSphere00_p, (ubo.sdSphere00_radius.x));res = bUniS(vec4(MAT_ERNST0_001_COL, d), res, (ubo.sdSphere00_boolean.x));
+vec3 sdTorus00_p = p;
+sdTorus00_p.xyz += ubo.sdTorus00_position.xyz;
+pRot(sdTorus00_p, ubo.sdTorus00_rotation.xyz);
+
+d = sdTorus(sdTorus00_p, vec2((ubo.sdTorus00_radiuses.x), (ubo.sdTorus00_radiuses.y)));res = bUniS(vec4(MAT_ERNST0_006_COL, d), res, (ubo.sdTorus00_boolean.x));
+vec3 sdPieCylinder00_p = p;
+sdPieCylinder00_p.xyz += ubo.sdPieCylinder00_position.xyz;
+pRot(sdPieCylinder00_p, ubo.sdPieCylinder00_rotation.xyz);
+
+d = sdPieCylinder(sdPieCylinder00_p, (ubo.sdPieCylinder00_radius_height_percentage.x), (ubo.sdPieCylinder00_radius_height_percentage.y), (ubo.sdPieCylinder00_radius_height_percentage.z));res = bUniS(vec4(MAT_ERNST0_008_COL, d), res, (ubo.sdPieCylinder00_boolean.x));
+vec3 sdSphere04_p = p;
+sdSphere04_p.xyz += ubo.sdSphere04_position.xyz;
+
+d = sdSphere(sdSphere04_p, (ubo.sdSphere04_radius.x));res = bUniS(vec4(MAT_ERNST0_013_COL, d), res, (ubo.sdSphere04_boolean.x));
+vec3 sdSphere05_p = p;
+sdSphere05_p.xyz += ubo.sdSphere05_position.xyz;
+
+d = sdSphere(sdSphere05_p, (ubo.sdSphere05_radius.x));res = bUniS(vec4(MAT_ERNST0_012_COL, d), res, (ubo.sdSphere05_boolean.x));
+vec3 sdSphere00_001_p = p;
+sdSphere00_001_p.xyz += ubo.sdSphere00_001_position.xyz;
+
+d = sdSphere(sdSphere00_001_p, (ubo.sdSphere00_001_radius.x));res = bSub(vec4(MAT_ERNST0_009_COL, d), res);
+vec3 sdSphere01_p = p;
+sdSphere01_p.xyz += ubo.sdSphere01_position.xyz;
+
+d = sdSphere(sdSphere01_p, (ubo.sdSphere01_radius.x));res = bUniS(vec4(MAT_ERNST0_008_COL, d), res, (ubo.sdSphere01_boolean.x));
+
+  return res;
+}
