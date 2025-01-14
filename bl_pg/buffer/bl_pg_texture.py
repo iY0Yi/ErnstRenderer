@@ -1,12 +1,6 @@
 import bpy
 from bpy.types import PropertyGroup
-from bgl import glActiveTexture
-from bgl import glBindTexture
-from bgl import glBindTexture
-from bgl import GL_TEXTURE0
-from bgl import GL_TEXTURE_2D
 from ...bl_ot.shadergen.shadergen_util import *
-from ...bl_ot.shadergen.shaderizer import shaderizer_watcher
 from ...bl_ot.shadergen.shaderizer.shaderizer_object import *
 
 class ERNST_PG_Texture(PropertyGroup):
@@ -67,8 +61,9 @@ class ERNST_PG_Texture(PropertyGroup):
 
         channel = buffer.get_texture()
 
-        glActiveTexture(GL_TEXTURE0+channel)
-        buffer.set_texture_interpolation(self.interpolation)
-        buffer.set_texture_wrap(self.wrap)
-        glBindTexture(GL_TEXTURE_2D, channel)
-        uniform_int(shader, u_name, channel)
+        # glActiveTexture(GL_TEXTURE0+channel)
+        # buffer.set_texture_interpolation(self.interpolation)
+        # buffer.set_texture_wrap(self.wrap)
+        # glBindTexture(GL_TEXTURE_2D, channel)
+        # uniform_int(shader, u_name, channel)
+        uniform_sampler(shader, u_name, buffer.get_texture())

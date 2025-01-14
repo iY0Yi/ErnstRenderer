@@ -1,9 +1,5 @@
 import math
 import string
-import numpy as np
-import bgl
-import gpu
-from mathutils import Vector
 from ....util.map import Map
 from .. import shadergen_data as sgd
 from ..shadergen_util import *
@@ -106,30 +102,6 @@ def get_code(obj, trans_rot):
   else:
     return f'{get_TRV_trans_name(obj)}[int(TRVsID)]'
 
-# def save_opengl_texture_as_image(texture_id, width, height, image_name, file_path):
-#     # 1. OpenGLテクスチャからデータを読み取る
-#     bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture_id[0])
-#     buffer = bgl.Buffer(bgl.GL_FLOAT, width * height * 4)
-#     bgl.glGetTexImage(bgl.GL_TEXTURE_2D, 0, bgl.GL_RGBA, bgl.GL_FLOAT, buffer)
-
-#     # 2. データをBlenderのImageオブジェクトに変換する
-#     if image_name not in bpy.data.images:
-#         bpy.data.images.new(image_name, width=width, height=height, alpha=True, float_buffer=True)
-#     image = bpy.data.images[image_name]
-
-#     # 画像のサイズが異なる場合、新しい画像を作成
-#     if image.size[0] != width or image.size[1] != height:
-#         bpy.data.images.remove(image)
-#         bpy.data.images.new(image_name, width=width, height=height, alpha=True, float_buffer=True)
-#         image = bpy.data.images[image_name]
-
-#     image.pixels = [v for v in buffer]
-
-#     # 3. Imageオブジェクトをファイルとして保存する
-#     image.filepath_raw = file_path
-#     image.file_format = 'OPEN_EXR'
-#     image.save()
-
 def analyze_trvs():
   global use_texture, texture_id, uniform_name, trvs_id, texture
   # count min/max frame
@@ -212,30 +184,6 @@ def analyze_trvs():
       with f_bl_trvs_data.open(mode='w') as fw:
         fw.write(code)
 
-    # Create a buffer
-    # buffer = bgl.Buffer(bgl.GL_FLOAT, len(data)*4, [el for vec in data for el in vec])
-
-    # If texture id doesn't exist, generate a new one
-    # if texture_id is None:
-    #   texture_id = bgl.Buffer(bgl.GL_INT, 1)
-    #   bgl.glGenTextures(1, texture_id)
-
-    # Bind the texture
-    # bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture_id[0])
-
-    # Set texture parameters
-    # bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_WRAP_S, bgl.GL_CLAMP_TO_EDGE)
-    # bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_WRAP_T, bgl.GL_CLAMP_TO_EDGE)
-    # bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
-    # bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
-
-    # Upload data to GPU
-    # bgl.glTexImage2D(bgl.GL_TEXTURE_2D, 0, bgl.GL_RGBA32F, keys_num, trvs_id, 0, bgl.GL_RGBA, bgl.GL_FLOAT, buffer)
-
-    # Generate TRVs texture to use on oF
-    # save_opengl_texture_as_image(texture_id, keys_num, trvs_id, 'tx_trvs', bpy.context.scene.render.filepath+'tx_trvs.exr')
-    # save_opengl_texture_as_image(texture_id, keys_num, trvs_id, 'tx_trvs', str(sgd.dir_trk_root)+'/tx_trvs.exr')
-
   with f_tmp_trvs.open() as f_tmp:
 
     code = f_tmp.read()
@@ -282,9 +230,5 @@ def analyze_trvs():
 
 def bind_texture(shader):
   global use_texture, texture_id, uniform_name, trvs_id, texture
-  pass
-  # shader.uniform_sampler(uniform_name, texture)
-  # if texture_id is not None:
-  #   bgl.glActiveTexture(bgl.GL_TEXTURE0+texture_id[0])
-  #   bgl.glBindTexture(bgl.GL_TEXTURE_2D, texture_id[0])
-  #   uniform_int(shader, uniform_name, texture_id[0])
+  if texture is not None:
+    uniform_sampler(shader, uniform_name, texture)

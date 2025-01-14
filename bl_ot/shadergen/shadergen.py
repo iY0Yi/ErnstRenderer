@@ -35,7 +35,7 @@ def process(context):
     if ubo.enabled:
       ubo.add_vec4('renderSettings')
     else:
-      sgd.uniform_code.render_settings = ''
+      sgd.uniform_code.render_settings = '\n'
       sgd.uniform_code.render_settings +='uniform float ufDistMin;\n'
       sgd.uniform_code.render_settings +='uniform float ufDistMax;\n'
       sgd.uniform_code.render_settings +='uniform int uiStepMax;\n'
@@ -46,7 +46,7 @@ def process(context):
     notification.add(Notification('Analyzed.', 3, notification.OK))
 
     notification.add(Notification('Compiling shader files...', 3, 0))
-    context.workspace.ernst.image.init_buffer('Image  ')
+    context.workspace.ernst.image.init_buffer('Image')
     context.workspace.ernst.buffer_a.init_buffer('BufferA')
     context.workspace.ernst.buffer_b.init_buffer('BufferB')
     context.workspace.ernst.buffer_c.init_buffer('BufferC')

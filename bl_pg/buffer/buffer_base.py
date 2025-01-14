@@ -3,7 +3,6 @@ from threading import Timer
 import math
 import bpy
 from pathlib import Path
-import bgl
 import gpu
 from mathutils import Matrix
 from gpu_extras.batch import batch_for_shader
@@ -13,9 +12,7 @@ from ...util.notification import Notification
 from ...bl_ot.shadergen.shaderizer.shaderizer_formatter import format_code
 
 from ...bl_ot.shadergen.shadergen_util import *
-# from ...bl_ot.shadergen import shadergen_data as sgd
 from ...bl_ot.shadergen.shaderizer.shaderizer_object import *
-from ...bl_ot.shadergen.shaderizer.shaderizer_object import is_fixed
 from ...bl_ot.shadergen.shaderizer import shaderizer_trvs
 
 from ...bl_ot.shadergen import shadergen_ubo as ubo
@@ -46,18 +43,42 @@ def view3d_camera_border(scene):
     frame_px = [location_3d_to_region_2d(region, rv3d, v) for v in frame]
     return frame_px
 
+def add_push_constant(shader_info, type, name):
+    if type=='' or name=='':
+        return
+
+    try:
+        # push_constantを追加
+        shader_info.push_constant(type, name)
+    except ValueError as e:
+        # 値が不正な場合（例えば型がサポートされていない場合）
+        print(f"ValueError: Failed to add push constant '{name}' with type '{type}'. Details: {e}")
+    except TypeError as e:
+        # 型が適切でない場合
+        print(f"TypeError: Type '{type}' or name '{name}' is incompatible. Details: {e}")
+    except AttributeError as e:
+        # shader_infoオブジェクトが無効またはpush_constantが存在しない場合
+        print(f"AttributeError: The object 'shader_info' does not support 'push_constant'. Details: {e}")
+    except Exception as e:
+        # その他の予期しないエラー
+        print(f"Unexpected error occurred while adding push constant: {e}")
+    else:
+        # 成功時の処理（必要なら追加）
+        print(f"Push constant '{name}' with type '{type}' added successfully.")
+    finally:
+        # リソース解放や後処理（必要なら追加）
+        pass
 
 class BufferBase():
     vertices = ((-1,-1, 0), (1,-1, 0), (-1,1, 0), (1,1, 0))
     indices = ((0, 1, 2), (2, 1, 3))
 
-    unifroms_bl = '''
-    uniform sampler2D matcap;
-    uniform sampler2D iChannel0;
-    uniform sampler2D iChannel1;
-    uniform sampler2D iChannel2;
-    uniform sampler2D iChannel3;
-    '''
+    unifroms_bl = '\n'
+    unifroms_bl+='uniform sampler2D matcap;\n'
+    unifroms_bl+='uniform sampler2D iChannel0;\n'
+    unifroms_bl+='uniform sampler2D iChannel1;\n'
+    unifroms_bl+='uniform sampler2D iChannel2;\n'
+    unifroms_bl+='uniform sampler2D iChannel3;\n'
 
     code_vert = '''
     //in vec3 position;
@@ -102,7 +123,7 @@ class BufferBase():
     shader = None
     batch = None
     offscreen = gpu.types.GPUOffScreen(512, 512)
-    name = 'None'
+    name = ''
     code_name_real = ''
     ichannel0 = None
     ichannel1 = None
@@ -111,6 +132,7 @@ class BufferBase():
     interpolation = 'linear'
     wrap = 'clamp'
     texture_h = 0
+    uniforms = []
 
     def __init__(self, name):
         self.name = name.strip().lower()
@@ -119,10 +141,7 @@ class BufferBase():
 
         self.code_name_real = code_name_real
 
-        if self.code_name_real == 'None':
-            return
-
-        if self.code_name_real == '':
+        if self.code_name_real == None:
             return
 
         if not sgd.is_exporting:
@@ -134,48 +153,69 @@ class BufferBase():
                         vh = region.height
                 self.resize_offscreen(vw, vh)
 
-        absolute_path = bpy.path.abspath(self.code_name_real)
-        path = Path(absolute_path)
+        path = Path(self.code_name_real)
 
         with path.open() as file:
             code = self.common_header_bl
 
             if not sgd.is_exporting:
                 code += self.unifroms_bl
-                # code += ucode
                 code += sgd.code_uniform_camera
                 code += sgd.code_uniform_lights
-                code += parse_for_includes(file.read(), str(path))
+            code += parse_for_includes(file.read(), str(path))
 
             code += self.common_footer_bl
+
+            shader_info = gpu.types.GPUShaderCreateInfo()
+
+            #  extract uniforms with borrowed code by leon.
+            # https://github.com/leon196/blender-glsl-addon
+            rows = code.split("\n")
+            lines = []
+            images = 0
             code = format_code(code)
+
+            for row in rows:
+                if "uniform" in row:
+                    column = row.split(" ")
+                    type = column[1].upper()
+                    name = column[2].rstrip(';')
+                    if "SAMPLER2D" in type:
+                        shader_info.sampler(images,"FLOAT_2D", name)
+                        images += 1
+                    else:
+                        add_push_constant(shader_info, type, name)
+
+                if "uniform" not in row and "attribute" not in row and "varying" not in row:
+                    lines.append(row)
+
+            code = "\n".join(lines)
 
             if bpy.context.workspace.ernst.print_code: print(code)
 
-            if not sgd.is_exporting:
-                shader_info = gpu.types.GPUShaderCreateInfo()
-                if ubo.enabled:
-                    shader_info.typedef_source(ubo.data.get_shader_code())
-                    shader_info.uniform_buf(0, ubo.TYPE_NAME, ubo.SHADER_NAME)
-                shader_info.push_constant('FLOAT', "iTime")
-                shader_info.push_constant('INT', "iFrame")
-                shader_info.push_constant('VEC2', "iOffset")
-                shader_info.push_constant('VEC2', "iResolution")
-                shader_info.vertex_in(0, 'VEC3', "position")
-                shader_info.vertex_source(self.code_vert)
-                shader_info.fragment_out(0, 'VEC4', "outColor")
-                shader_info.fragment_source(code)
-                start_time = time.time()
-                self.shader = gpu.shader.create_from_info(shader_info)
-                end_time = time.time()
-                elapsed_time = end_time - start_time
-                print(f"gpu.types.GPUShader: {elapsed_time:.5f}sec")
-                del shader_info
-                try:
-                    self.batch = batch_for_shader(self.shader, 'TRIS', {'position': self.vertices}, indices=self.indices)
-                    notification.add(Notification(f'Compiled: {self.name}', 5, notification.OK))
-                except:
-                    notification.add(Notification('Error on compiling', 5, notification.ERROR))
+
+            if ubo.enabled:
+                shader_info.typedef_source(ubo.data.get_shader_code())
+                shader_info.uniform_buf(0, ubo.TYPE_NAME, ubo.SHADER_NAME)
+            shader_info.push_constant('FLOAT', "iTime")
+            shader_info.push_constant('INT', "iFrame")
+            shader_info.push_constant('VEC2', "iOffset")
+            shader_info.push_constant('VEC2', "iResolution")
+            shader_info.vertex_in(0, 'VEC3', "position")
+            shader_info.vertex_source(self.code_vert)
+            shader_info.fragment_out(0, 'VEC4', "outColor")
+            shader_info.fragment_source(code)
+            start_time = time.time()
+            self.shader = gpu.shader.create_from_info(shader_info)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"gpu.types.GPUShader: {elapsed_time:.5f}sec")
+            del shader_info
+            try:
+                self.batch = batch_for_shader(self.shader, 'TRIS', {'position': self.vertices}, indices=self.indices)
+                notification.add(Notification(f'Compiled: {self.name}', 5, notification.OK))
+            except:
+                notification.add(Notification('Error on compiling', 5, notification.ERROR))
 
     def update_sb_uniforms(self, context):
         ox = oy = 0
@@ -208,10 +248,12 @@ class BufferBase():
         self.shader.uniform_float('iResolution', (vw, vh))
 
         # self.shader.uniform_float('iResolution', (vw, vh))
+
+        # self.shader.uniform_float('iTime', bpy.data.scenes['Scene'].frame_current/bpy.data.scenes['Scene'].render.fps)
         uniform_float(self.shader, 'iTime', bpy.data.scenes['Scene'].frame_current/bpy.data.scenes['Scene'].render.fps)
         #self.shader.uniform_float('iTimeDelta', 1/60)              #render time (in seconds)
         # self.shader.uniform_int('iFrame', bpy.data.scenes['Scene'].frame_current)
-        uniform_int(self.shader, 'iFrame', bpy.data.scenes['Scene'].frame_current)                       # shader playback frame
+        # uniform_int(self.shader, 'iFrame', bpy.data.scenes['Scene'].frame_current)                       # shader playback frame
         #self.shader.uniform_float('iFrameRate', 60)                # shader playback frame
         #self.shader.uniform_float('iChannelTime', (512,512))       #channel playback time (in seconds)
         #self.shader.uniform_float('iChannelResolution', (512,512)) #channel resolution (in pixels)
@@ -304,8 +346,6 @@ class BufferBase():
         self.update_scene_uniforms(context)
         img_matcap = bpy.data.images[bpy.context.workspace.ernst.matcap]
         tx_matcap = gpu.texture.from_image(img_matcap)
-        bgl.glActiveTexture(bgl.GL_TEXTURE0+img_matcap.bindcode)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, img_matcap.bindcode)
 
         settings = bpy.context.workspace.ernst
         u_dist_min = settings.hit_distance
@@ -319,8 +359,8 @@ class BufferBase():
             uniform_float(self.shader, 'ufDistMax', u_dist_max)
             uniform_int(self.shader, 'uiStepMax', u_steps_max)
             uniform_float(self.shader, 'ufResScale', u_res_scale)
-        uniform_int(self.shader, 'matcap', img_matcap.bindcode)
-        # self.shader.uniform_sampler('matcap', tx_matcap)
+        # uniform_int(self.shader, 'matcap', img_matcap.bindcode)
+        uniform_sampler(self.shader, 'matcap', tx_matcap)
 
         if ubo.enabled:
             ubo.update(self.shader)

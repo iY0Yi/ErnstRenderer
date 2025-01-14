@@ -42,7 +42,6 @@ def get_panels():
         'RENDER_PT_eevee_performance',
         'MATERIAL_PT_preview',
         'EEVEE_MATERIAL_PT_settings',
-        'EEVEE_WORLD_PT_surface',
         'EEVEE_WORLD_PT_volume',
         'DATA_PT_preview',
         'DATA_PT_light',
@@ -50,17 +49,19 @@ def get_panels():
         'DATA_PT_EEVEE_shadow',
     }
 
-    exclude_panels2 = [
-        'COLLECTION_PT_instancing',
-        'COLLECTION_PT_collection_flags',
-        'COLLECTION_PT_lineart_collection',
-    ]
+    include_panels = {
+        'EEVEE_MATERIAL_PT_context_material',
+        'EEVEE_MATERIAL_PT_surface',
+        'MATERIAL_PT_preview'
+    }
 
     panels = []
     for panel in bpy.types.Panel.__subclasses__():
-        if hasattr(panel, 'COMPAT_ENGINES') and ('BLENDER_RENDER' in panel.COMPAT_ENGINES or 'BLENDER_EEVEE' in panel.COMPAT_ENGINES):
-            if panel.__name__ not in exclude_panels:
+        if hasattr(panel, 'COMPAT_ENGINES'):
+            if (('BLENDER_RENDER' in panel.COMPAT_ENGINES and panel.__name__ not in exclude_panels)
+                or panel.__name__ in include_panels):
                 panels.append(panel)
+
     return panels
 
 # all panels in PROPERTIES > SCENE
@@ -68,7 +69,6 @@ collection_prop_panels = [cls for cls in bl_ui.properties_collection.classes
         if issubclass(cls, Panel)]
 
 def register():
-    global exclude_panels2
     for panel in get_panels():
         panel.COMPAT_ENGINES.add('ERNST')
 

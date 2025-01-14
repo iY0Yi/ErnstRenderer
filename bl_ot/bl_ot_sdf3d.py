@@ -6,6 +6,63 @@ from mathutils import Matrix, Vector
 from .shadergen import shadergen_data as sgd
 from .shadergen.shaderizer import shaderizer_watcher
 
+import math
+import bpy
+
+# Auto smoothing
+# https://blender.stackexchange.com/questions/316696/attributeerror-mesh-object-has-no-attribute-use-auto-smooth
+
+def get_object_override(active_object, objects: list = None):
+
+    if objects is None:
+        objects = []
+    else:
+        objects = list(objects)
+
+    if not active_object in objects:
+        objects.append(active_object)
+
+    assert all(isinstance(object, bpy.types.Object) for object in objects)
+
+    return dict(
+        selectable_objects = objects,
+        selected_objects = objects,
+        selected_editable_objects = objects,
+        editable_objects = objects,
+        visible_objects = objects,
+        active_object = active_object,
+        object = active_object,
+    )
+
+def has_smooth_by_angle(object: bpy.types.Object):
+    for modifier in object.modifiers:
+
+        if modifier.type != 'NODES':
+            continue
+
+        if modifier.node_group and 'Smooth by Angle' in modifier.node_group.name:
+            return True
+
+    return False
+
+def do_auto_smooth(object: bpy.types.Object, angle = 30):
+
+    if not hasattr(object, 'modifiers'):
+        return
+
+    if has_smooth_by_angle(object):
+        return
+
+    with bpy.context.temp_override(**get_object_override(object)):
+        result = bpy.ops.object.modifier_add_node_group(asset_library_type='ESSENTIALS', asset_library_identifier="", relative_asset_identifier="geometry_nodes\\smooth_by_angle.blend\\NodeTree\\Smooth by Angle")
+        if 'CANCELLED' in result:
+            return
+
+        modifier = object.modifiers[-1]
+        modifier["Socket_1"] = True
+        modifier["Input_1"] = math.radians(angle)
+        object.update_tag()
+
 id_3d_plane = 0
 id_3d_sphere = 0
 id_3d_ellipsoid = 0
@@ -52,7 +109,7 @@ def get_active_material():
         return get_default_material()
 
 def set_material(obj, mat):
-    if obj.data.materials:
+    if len(obj.data.materials)>0:
         obj.data.materials[0] = mat
     else:
         obj.data.materials.append(mat)
@@ -160,7 +217,6 @@ def change_primitive(obj, new_type):
         newer.scale.y = 1
         newer.scale.z = 1
 
-    sgd.is_ignoring_watcher = False
 
 class ERNST_OT_ChangeTo_Plane(Operator):
     bl_idname = 'ernst.changeto_plane'
@@ -297,12 +353,13 @@ def set_ernst_props(obj, ernst_type, mat):
     if ernst_type != 'SDF_3D_CURVE_QUADRATIC'\
     and ernst_type != 'SDF_3D_UBER'\
     and ernst_type != 'SDF_3D_INSTANCE':
-        obj.data.use_auto_smooth = True
+        do_auto_smooth(obj)
     if mat != None:
         set_material(obj, mat)
     bpy.ops.ernst.add_pmod_translation()
     if ernst_type != 'SDF_3D_SPHERE':
         bpy.ops.ernst.add_pmod_rotation()
+    sgd.is_ignoring_watcher = False
 
 class ERNST_OT_Add_Sphere(Operator):
     bl_idname = 'ernst.add_sphere'
@@ -312,13 +369,12 @@ class ERNST_OT_Add_Sphere(Operator):
 
     def execute(self, context):
         global id_3d_sphere
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        obj = bpy.ops.mesh.primitive_uv_sphere_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.primitive_uv_sphere_add()
+        obj = bpy.context.object
         obj.name = 'sdSphere'+str(id_3d_sphere).rjust(2, '0')
         id_3d_sphere+=1
-        bpy.ops.object.shade_smooth()
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
         set_ernst_props(obj, 'SDF_3D_SPHERE', mat)
         return {'FINISHED'}
 
@@ -330,6 +386,7 @@ class ERNST_OT_Add_2D_Circle(Operator):
 
     def execute(self, context):
         global id_2d_circle
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         # obj = bpy.ops.mesh.primitive_uv_sphere_add()
         bpy.ops.mesh.primitive_circle_add(radius=1, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
@@ -337,11 +394,9 @@ class ERNST_OT_Add_2D_Circle(Operator):
         bpy.ops.mesh.edge_face_add()
         bpy.ops.object.editmode_toggle()
 
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sd2DCircle'+str(id_2d_circle).rjust(2, '0')
         id_2d_circle+=1
-        # bpy.ops.object.shade_smooth()
-        # bpy.data.meshes[obj.data.name].use_auto_smooth = True
         set_ernst_props(obj, 'SDF_2D_CIRCLE', mat)
         return {'FINISHED'}
 
@@ -353,9 +408,10 @@ class ERNST_OT_Add_2D_Box(Operator):
 
     def execute(self, context):
         global id_2d_box
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         bpy.ops.mesh.primitive_plane_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sd2DBox'+str(id_2d_box).rjust(2, '0')
         id_2d_box+=1
         set_ernst_props(obj, 'SDF_2D_BOX', mat)
@@ -369,13 +425,12 @@ class ERNST_OT_Add_Ellipsoid(Operator):
 
     def execute(self, context):
         global id_3d_ellipsoid
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        obj = bpy.ops.mesh.primitive_uv_sphere_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.primitive_uv_sphere_add()
+        obj = bpy.context.object
         obj.name = 'sdEllipsoid'+str(id_3d_ellipsoid).rjust(2, '0')
         id_3d_ellipsoid+=1
-        bpy.ops.object.shade_smooth()
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
         set_ernst_props(obj, 'SDF_3D_ELLIPSOID', mat)
         return {'FINISHED'}
 
@@ -387,9 +442,10 @@ class ERNST_OT_Add_Capsule(Operator):
 
     def execute(self, context):
         global id_3d_capsule
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         bpy.ops.mesh.make_wcapsule(radius=0.59, height=2.06, seg_height=9, centered=True)
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sdCapsule'+str(id_3d_capsule).rjust(2, '0')
         id_3d_capsule+=1
         set_ernst_props(obj, 'SDF_3D_CAPSULE', mat)
@@ -403,12 +459,12 @@ class ERNST_OT_Add_Cube(Operator):
 
     def execute(self, context):
         global id_3d_sd_cube
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        obj = bpy.ops.mesh.primitive_cube_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.primitive_cube_add()
+        obj = bpy.context.object
         obj.name = 'sdBox'+str(id_3d_sd_cube).rjust(2, '0')
         id_3d_sd_cube+=1
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
         set_ernst_props(obj, 'SDF_3D_BOX', mat)
         return {'FINISHED'}
 
@@ -420,12 +476,12 @@ class ERNST_OT_Add_Plane(Operator):
 
     def execute(self, context):
         global id_3d_plane
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        obj = bpy.ops.mesh.primitive_plane_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.primitive_plane_add()
+        obj = bpy.context.object
         obj.name = 'sdPlane'+str(id_3d_plane).rjust(2, '0')
         id_3d_plane+=1
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
         set_ernst_props(obj, 'SDF_3D_PLANE', mat)
         return {'FINISHED'}
 
@@ -437,13 +493,12 @@ class ERNST_OT_Add_Cylinder(Operator):
 
     def execute(self, context):
         global id_3d_cylinder
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        obj = bpy.ops.mesh.primitive_cylinder_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.primitive_cylinder_add()
+        obj = bpy.context.object
         obj.name = 'sdCappedCylinder'+str(id_3d_cylinder).rjust(2, '0')
         id_3d_cylinder+=1
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
-        bpy.ops.object.shade_smooth()
         set_ernst_props(obj, 'SDF_3D_CYLINDER', mat)
         return {'FINISHED'}
 
@@ -455,13 +510,12 @@ class ERNST_OT_Add_Pie(Operator):
 
     def execute(self, context):
         global id_3d_pie
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        obj = bpy.ops.mesh.primitive_cylinder_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.primitive_cylinder_add()
+        obj = bpy.context.object
         obj.name = 'sdPieCylinder'+str(id_3d_pie).rjust(2, '0')
         id_3d_pie+=1
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
-        bpy.ops.object.shade_smooth()
         set_ernst_props(obj, 'SDF_3D_CYLINDER_PIE', mat)
         return {'FINISHED'}
 
@@ -473,9 +527,10 @@ class ERNST_OT_Add_Torus(Operator):
 
     def execute(self, context):
         global id_3d_torus
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         bpy.ops.mesh.make_wtorus(radius_main=1, radius_minor=0.5)
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sdTorus'+str(id_3d_torus).rjust(2, '0')
         id_3d_torus+=1
         set_ernst_props(obj, 'SDF_3D_TORUS', mat)
@@ -489,9 +544,10 @@ class ERNST_OT_Add_CappedTorus(Operator):
 
     def execute(self, context):
         global id_3d_capped_torus
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         bpy.ops.mesh.make_wtorus(radius_main=1, radius_minor=0.5)
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sdCappedTorus'+str(id_3d_capped_torus).rjust(2, '0')
         id_3d_capped_torus+=1
         set_ernst_props(obj, 'SDF_3D_TORUS_CAPPED', mat)
@@ -505,13 +561,13 @@ class ERNST_OT_Add_Cone(Operator):
 
     def execute(self, context):
         global id_3d_cone
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        bpy.ops.mesh.make_wcone(radius_top=0, radius_main=1.02, height=2, seg_perimeter=24, seg_height=1, seg_radius=1)
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.make_wcone(rad_top=0, rad_main=1.02, height=2, seg_perimeter=24, seg_height=1, seg_radius=1)
+        obj = bpy.context.object
         obj.name = 'sdConeSection'+str(id_3d_cone).rjust(2, '0')
         id_3d_cone+=1
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
-        bpy.data.meshes[obj.data.name].wData.cent = True
+        bpy.data.meshes[obj.data.name].WCone.centered = True
         set_ernst_props(obj, 'SDF_3D_CONE', mat)
         return {'FINISHED'}
 
@@ -523,13 +579,13 @@ class ERNST_OT_Add_RoundCone(Operator):
 
     def execute(self, context):
         global id_3d_round_cone
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
-        bpy.ops.mesh.make_wcone(radius_top=0, radius_main=1.02, height=2, seg_perimeter=24, seg_height=1, seg_radius=1)
-        obj = bpy.data.objects[str(context.active_object.name)]
+        bpy.ops.mesh.make_wcone(rad_top=0, rad_main=1.02, height=2, seg_perimeter=24, seg_height=1, seg_radius=1)
+        obj = bpy.context.object
         obj.name = 'sdRoundCone'+str(id_3d_round_cone).rjust(2, '0')
         id_3d_round_cone+=1
-        bpy.data.meshes[obj.data.name].use_auto_smooth = True
-        bpy.data.meshes[obj.data.name].wData.cent = True
+        bpy.data.meshes[obj.data.name].WCone.centered = True
         set_ernst_props(obj, 'SDF_3D_CONE_ROUND', mat)
         return {'FINISHED'}
 
@@ -541,6 +597,8 @@ class ERNST_OT_Add_CurveQ(Operator):
 
     def execute(self, context):
         global id_3d_quadratic_curve
+        sgd.is_ignoring_watcher = True
+
         mat = get_active_material()
 
         bpy.ops.curve.primitive_bezier_curve_add()
@@ -568,7 +626,7 @@ class ERNST_OT_Add_CurveQ(Operator):
 
         bpy.ops.object.editmode_toggle()
 
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sdCurveQuadratic'+str(id_3d_quadratic_curve).rjust(2, '0')
         id_3d_quadratic_curve+=1
         set_ernst_props(obj, 'SDF_3D_CURVE_QUADRATIC', mat)
@@ -595,9 +653,10 @@ class ERNST_OT_Add_Uber2D(Operator):
 
     def execute(self, context):
         global id_2d_uber
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         bpy.ops.mesh.primitive_plane_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sdUber2D'+str(id_2d_uber).rjust(2, '0')
         id_2d_uber+=1
         set_ernst_props(obj, 'SDF_2D_UBER', mat)
@@ -611,6 +670,7 @@ class ERNST_OT_Add_Uber3D(Operator):
 
     def execute(self, context):
         global id_3d_uber3d
+        sgd.is_ignoring_watcher = True
         mat = get_active_material()
         bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, location=(0, 0, 0))
         bpy.ops.object.editmode_toggle()
@@ -619,7 +679,7 @@ class ERNST_OT_Add_Uber3D(Operator):
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.delete(type='ONLY_FACE')
         bpy.ops.object.editmode_toggle()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.name = 'sdUber3D'+str(id_3d_uber3d).rjust(2, '0')
         id_3d_uber3d+=1
         set_ernst_props(obj, 'SDF_3D_UBER', mat)
@@ -633,8 +693,9 @@ class ERNST_OT_Add_ControlPoint(Operator):
 
     def execute(self, context):
         global id_control_point
+        sgd.is_ignoring_watcher = True
         obj = bpy.ops.object.empty_add()
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.empty_display_size = 0.1
         obj.show_in_front = True
         obj.name = 'cp'+str(id_control_point).rjust(2, '0')
@@ -656,6 +717,7 @@ class ERNST_OT_Add_IKArmature(Operator):
 
     def execute(self, context):
         global id_ik_armature
+        sgd.is_ignoring_watcher = True
 
         bpy.ops.object.armature_add(enter_editmode=False, location=(0, 0, 0))
         armature = bpy.context.view_layer.objects.active
@@ -769,8 +831,9 @@ class ERNST_OT_Add_Camera(Operator):
 
     def execute(self, context):
         global id_camera
+        sgd.is_ignoring_watcher = True
         obj = bpy.ops.object.camera_add(enter_editmode=False, align='WORLD', location=(0, 0, 0), rotation=(3.14/2, 0, 0))
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.show_in_front = True
         obj.name = 'cam'+str(id_camera).rjust(1, '0')
         id_camera+=1
@@ -788,8 +851,9 @@ class ERNST_OT_Add_Light_Sun(Operator):
 
     def execute(self, context):
         global id_light
+        sgd.is_ignoring_watcher = True
         obj = bpy.ops.object.light_add(type='SUN', radius=1, location=(0, 0, 0))
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.show_in_front = True
         obj.name = 'lit'+str(id_light).rjust(1, '0')
         id_light+=1
@@ -807,8 +871,9 @@ class ERNST_OT_Add_Light_Spot(Operator):
 
     def execute(self, context):
         global id_light
+        sgd.is_ignoring_watcher = True
         obj = bpy.ops.object.light_add(type='SUN', radius=1, location=(0, 0, 0))
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.show_in_front = True
         obj.name = 'lit'+str(id_light).rjust(1, '0')
         id_light+=1
@@ -826,8 +891,9 @@ class ERNST_OT_Add_Light_Area(Operator):
 
     def execute(self, context):
         global id_light
+        sgd.is_ignoring_watcher = True
         obj = bpy.ops.object.light_add(type='SUN', radius=1, location=(0, 0, 0))
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.show_in_front = True
         obj.name = 'lit'+str(id_light).rjust(1, '0')
         id_light+=1
@@ -845,8 +911,9 @@ class ERNST_OT_Add_Light_Point(Operator):
 
     def execute(self, context):
         global id_light
+        sgd.is_ignoring_watcher = True
         obj = bpy.ops.object.light_add(type='SUN', radius=1, location=(0, 0, 0))
-        obj = bpy.data.objects[str(context.active_object.name)]
+        obj = bpy.context.object
         obj.show_in_front = True
         obj.name = 'lit'+str(id_light).rjust(1, '0')
         id_light+=1
@@ -865,6 +932,7 @@ class ERNST_OT_Add_Collection(Operator):
 
     def execute(self, context):
         global id_collection
+        sgd.is_ignoring_watcher = True
 
         self.name = 'sd'+str(id_collection).rjust(2, '0')
         col = bpy.data.collections.new(self.name)
@@ -923,6 +991,8 @@ class ERNST_OT_Add_Instance(Operator):
 
     def execute(self, context):
         global id_collections
+        sgd.is_ignoring_watcher = True
+
         self.report({'INFO'}, enum_items.lookup[self.collections])
         bpy.ops.object.collection_instance_add(collection=enum_items.lookup[self.collections], location=(0, 0, 0))
         inst = context.view_layer.objects.active

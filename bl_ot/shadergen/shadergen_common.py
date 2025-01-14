@@ -44,13 +44,13 @@ def write_common_code(context):
     code_canvas_offset = 'return;'
     if not sgd.is_exporting:
       if ubo.enabled:
-        code_canvas_uniform = ''
+        code_canvas_uniform = '\n'
         ubo.add_vec4('canvas_offset')
         is_canvas_mode = f'bool({ubo.name("canvas_offset")}.z)'
         u_name = ubo.name('canvas_offset')+'.xy'
       else:
         u_name = 'canvas_offset'
-        code_canvas_uniform = f'uniform bool is_canvas_mode;\n'
+        code_canvas_uniform += f'uniform bool is_canvas_mode;\n'
         code_canvas_uniform += f'uniform vec2 {u_name};\n'
         is_canvas_mode = 'is_canvas_mode'
       render = context.scene.render

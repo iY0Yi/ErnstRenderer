@@ -4,7 +4,6 @@ import string
 
 import bpy
 import numpy as np
-from bgl import *
 from mathutils import Quaternion, Vector
 
 from ...util.util import *
@@ -242,67 +241,58 @@ def make_path_absolute(path):
     sane_path = lambda p: os.path.abspath(bpy.path.abspath(p))
     return sane_path(path)
 
+COLOR_MAP = {
+    "black": 30, "red": 31, "green": 32, "yellow": 33,
+    "blue": 34, "magenta": 35, "cyan": 36, "white": 37,
+}
+
+def printc(*args, color="white", sep=' ', end='\n'):
+    """
+    カラー付きで複数の文字列を出力する。
+
+    :param args: 出力する複数の文字列
+    :param color: 色名（例: "red", "green", "blue"）
+    :param sep: 引数間の区切り文字（デフォルトは空白）
+    :param end: 最後に付加する文字（デフォルトは改行）
+    """
+    color_code = COLOR_MAP.get(color.lower(), 37)  # デフォルトは白
+    text = sep.join(map(str, args))
+    print(f"\033[{color_code}m{text}\033[0m", end=end)
+
+def uniform_setter(shader, method_name, u_name, val):
+    """
+    任意のuniform設定メソッドを汎用的に処理する関数。
+    """
+    try:
+        method = getattr(shader, method_name)
+        method(u_name, val)
+    except ValueError as e:
+        printc(f"Error: Uniform '{u_name}' not found or incompatible. Details: {e}", color='yellow')
+    except TypeError as e:
+        printc(f"Error: Value for '{u_name}' is of an incompatible type. Details: {e}", color='red')
+    except AttributeError as e:
+        printc(f"Error: Shader does not have method '{method_name}'. Details: {e}", color='red')
+    except Exception as e:
+        printc(f"Unexpected error occurred while setting uniform '{u_name}' using '{method_name}': {e}", color='red')
+    else:
+        printc(f"Success: Uniform '{u_name}' set with: {val} using '{method_name}'", color='green')
+
+
+# 各既存関数のラッパー
 def uniform_bool(shader, u_name, val):
-    glUniform1i(glGetUniformLocation(shader.program, u_name), int(val))
+    uniform_setter(shader, "uniform_bool", u_name, val)
+
+
+def uniform_sampler(shader, u_name, val):
+    uniform_setter(shader, "uniform_sampler", u_name, val)
+
 
 def uniform_int(shader, u_name, val):
-    if type(val) is int:
-        glUniform1i(glGetUniformLocation(shader.program, u_name), np.int32(val))
-        return
-
-    if type(val) is Quaternion:
-        glUniform4i(glGetUniformLocation(shader.program, u_name), val.x, val.y, val.z, val.w)
-        return
-
-    if type(val) is Vector:
-        val = list(val.to_tuple())
-    elif type(val) is tuple:
-        val = list(val)
-
-    vectype = len(val)
-
-    if vectype <= 1:
-        glUniform1i(glGetUniformLocation(shader.program, u_name), val[0])
-        return
-    elif vectype == 2:
-        glUniform2i(glGetUniformLocation(shader.program, u_name), val[0], val[1])
-        return
-    elif vectype == 3:
-        glUniform3i(glGetUniformLocation(shader.program, u_name), val[0], val[1], val[2])
-        return
-    elif vectype == 4:
-        glUniform4i(glGetUniformLocation(shader.program, u_name), val[0], val[1], val[2], val[3])
+    uniform_setter(shader, "uniform_int", u_name, val)
 
 
 def uniform_float(shader, u_name, val):
-    if type(val) is float or type(val) is int:
-        glUniform1f(glGetUniformLocation(shader.program, u_name), np.float32(val))
-        return
-
-    if type(val) is Quaternion:
-        glUniform4f(glGetUniformLocation(shader.program, u_name), np.float32(val.x), np.float32(val.y), np.float32(val.z), np.float32(val.w))
-        return
-
-    if type(val) is Vector:
-        val = list(val.to_tuple())
-    elif type(val) is tuple:
-        val = list(val)
-
-    vectype = len(val)
-
-    if vectype <= 1:
-        glUniform1f(glGetUniformLocation(shader.program, u_name), np.float32(val[0]))
-        return
-    elif vectype == 2:
-        glUniform2f(glGetUniformLocation(shader.program, u_name), np.float32(val[0]), np.float32(val[1]))
-        return
-    elif vectype == 3:
-        glUniform3f(glGetUniformLocation(shader.program, u_name), np.float32(val[0]), np.float32(val[1]), np.float32(val[2]))
-        return
-    elif vectype == 4:
-        glUniform4f(glGetUniformLocation(shader.program, u_name), np.float32(val[0]), np.float32(val[1]), np.float32(val[2]), np.float32(val[3]))
-        return
-
+    uniform_setter(shader, "uniform_float", u_name, val)
 
 def miniFloatToUint(x):
     x = np.clip(np.float64(x), np.float64(-1),np.float64(1))*np.float64(127.00)

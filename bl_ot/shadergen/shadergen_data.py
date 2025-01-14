@@ -37,6 +37,7 @@ fixed_num = 0
 
 dir_trk_root = ''
 dir_trk_uber_scripts = ''
+dir_trk_lib_modules = ''
 dirp_addon = None
 dirp_temp_root = None
 dirp_temp_inc = None

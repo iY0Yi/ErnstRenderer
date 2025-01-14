@@ -3,18 +3,17 @@ from bpy.types import Panel
 from ..bl_ot.bl_ot_export_shader import *
 from ..bl_ot.shadergen import shadergen_data as sgd
 
-class RenderButtonsPanel:
+class ERNST_PT_Project(Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "render"
+    bl_label = 'Project'
+    bl_order = 0
+    COMPAT_ENGINES = {'ERNST'}
 
     @classmethod
     def poll(cls, context):
         return (context.engine in cls.COMPAT_ENGINES)
-
-class ERNST_PT_Project(RenderButtonsPanel, Panel):
-    bl_label = 'Project'
-    COMPAT_ENGINES = {'ERNST'}
 
     def draw(self, context):
         layout = self.layout

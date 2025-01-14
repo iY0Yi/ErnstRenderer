@@ -9,6 +9,11 @@ from .buffer_base import BufferBase
 from ...bl_ot.shadergen import shadergen_data as sgd
 from ...util.util import *
 
+def update_code_name(self, context):
+    if self.code_name:
+        self.code_name = bpy.path.relpath(self.code_name)
+        shaderizer_watcher.check
+
 class ERNST_PG_Buffer(PropertyGroup):
     name: bpy.props.StringProperty(default = 'Image')
     expanded: bpy.props.BoolProperty(default = False)
@@ -30,18 +35,20 @@ class ERNST_PG_Buffer(PropertyGroup):
         default="",
         maxlen=1024,
         subtype='FILE_PATH',
-        update=shaderizer_watcher.check
+        update=update_code_name
     )
 
     def init_buffer(self, name):
+        print('init_buffer(): ', name)
         self.name = name
         buf_name = name.strip().lower()
         sgd.buffers[buf_name] = BufferBase(buf_name)
 
     def compile(self, context):
+        print(self.code_name, 'compile()')
         if self.code_name != '':
             buf_name = self.get_buffer_name()
-            sgd.buffers[buf_name].compile(context, self.code_name)
+            sgd.buffers[buf_name].compile(context, bpy.path.abspath(self.code_name))
             sgd.buffers[buf_name].ichannel0 = self.ichannel0
             sgd.buffers[buf_name].ichannel1 = self.ichannel1
             sgd.buffers[buf_name].ichannel2 = self.ichannel2
@@ -54,8 +61,7 @@ class ERNST_PG_Buffer(PropertyGroup):
         sgd.buffers[self.get_buffer_name()].render()
 
     def get_texture(self):
-        # return sgd.buffers[self.get_buffer_name()].offscreen.texture_color
-        return sgd.buffers[self.get_buffer_name()].offscreen.color_texture
+        return sgd.buffers[self.get_buffer_name()].offscreen.texture_color
 
     def set_texture_interpolation(self, interpolation):
         sgd.buffers[self.get_buffer_name()].interpolation = interpolation
@@ -64,7 +70,7 @@ class ERNST_PG_Buffer(PropertyGroup):
         sgd.buffers[self.get_buffer_name()].wrap = wrap
 
     def draw_property_box(self, box):
-        row = box.row(align=False)
+        row = box.row(align=True)
         is_active = self.code_name != ''
         row.active = is_active
         row.alignment = 'LEFT'

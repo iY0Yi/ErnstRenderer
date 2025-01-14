@@ -92,9 +92,16 @@ def fn_prefix(context):
     return eval(addon_prefs.prefix)
 
 def open_vscode(path):
-    os.system('code ' + path)
-    # subprocess.Popen(["code", path], shell=True)
-    return
+    try:
+        subprocess.Popen(
+            f'start /B code "{path}"',
+            shell=True
+        )
+    except FileNotFoundError:
+        print("Error: 'code' command not found. Make sure VS Code is installed and added to PATH.")
+    except Exception as e:
+        print(f"Unexpected error occurred: {e}")
+
 
 class ERNST_OT_OpenTrackInVSCode(Operator):
     bl_idname = "ernst.open_track_in_vscode"
@@ -102,8 +109,42 @@ class ERNST_OT_OpenTrackInVSCode(Operator):
     COMPAT_ENGINES = {'ERNST'}
 
     def execute(self, context):
-        open_vscode(sgd.dir_trk_root)
+        res = open_vscode(sgd.dir_trk_root)
+        if res:
+            return {'FINISHED'}
+        else:
+            return {'CANCELLED'}
 
+# タイムスタンプを生成する例
+timestamp = lambda: time.strftime("%Y%m%d%H%M%S")
+
+class ERNST_OT_check_sketch_directory(bpy.types.Operator):
+    """Check and create sketch directory"""
+    bl_idname = "ernst.check_sketch_directory"
+    bl_label = "Check Sketch Directory"
+    bl_description = "Ensure the sketch directory is set and create subdirectory"
+
+    def execute(self, context):
+        # dir_sketchのチェック
+        addon_id = "ernst_renderer"
+        preferences = bpy.context.preferences.addons[addon_id].preferences
+        dir_sketch = preferences.dir_sketch
+        if not dir_sketch:
+            # 未設定の場合は警告を表示
+            self.report({'WARNING'}, "Sketch directory is not set. Please set it in the workspace settings.")
+            return {'CANCELLED'}
+        else:
+            # 出力ディレクトリ名を生成
+            outname = 'sketch' + timestamp()
+            dir_name = dir_sketch + outname + '/'
+
+            # ディレクトリパスを作成
+            dir_path = pathlib.Path(make_path_absolute(dir_name))
+            makeDir(dir_path)
+            bpy.ops.wm.save_mainfile(filepath=os.path.join(dir_path, outname+'.blend'), check_existing=True)
+
+            self.report({'INFO'}, f"Sketch directory created at: {dir_path}")
+            return {'FINISHED'}
 
 class ERNST_OT_SetupMinimumScene(Operator):
     bl_idname = "ernst.setup_minimum_scene"
@@ -142,7 +183,7 @@ class ERNST_OT_SetupMinimumScene(Operator):
 
         bpy.context.scene.render.engine = 'ERNST'
 
-        bpy.context.scene.display_settings.display_device = 'None'
+        bpy.context.scene.display_settings.display_device = 'sRGB'
         bpy.context.scene.view_settings.view_transform = 'Standard'
         bpy.context.scene.view_settings.look = 'None'
         bpy.context.scene.view_settings.exposure = 0
@@ -150,19 +191,15 @@ class ERNST_OT_SetupMinimumScene(Operator):
 
         bpy.context.scene.render.engine = 'ERNST'
 
-        outname = 'sketch'+timestamp()
-        dir_name = 'C:/Users/atsuh/Dropbox/pworks/sketch/'+outname+'/'
-        dir_path = pathlib.Path(make_path_absolute(dir_name))
-        makeDir(dir_path)
-        bpy.ops.wm.save_mainfile(filepath=os.path.join(dir_path, outname+'.blend'), check_existing=True)
-        bpy.data.workspaces["Layout"].ernst.image.code_name = 'None'
-        bpy.data.workspaces["Layout"].ernst.buffer_a.code_name = 'None'
-        bpy.data.workspaces["Layout"].ernst.buffer_b.code_name = 'None'
-        bpy.data.workspaces["Layout"].ernst.buffer_c.code_name = 'None'
-        bpy.data.workspaces["Layout"].ernst.buffer_d.code_name = 'None'
-        bpy.data.workspaces["Layout"].ernst.image.code_name = 'buf_post_material.frag'
+        bpy.ops.ernst.check_sketch_directory()
+        bpy.data.workspaces["Layout"].ernst.image.code_name = ''
+        bpy.data.workspaces["Layout"].ernst.buffer_a.code_name = ''
+        bpy.data.workspaces["Layout"].ernst.buffer_b.code_name = ''
+        bpy.data.workspaces["Layout"].ernst.buffer_c.code_name = ''
+        bpy.data.workspaces["Layout"].ernst.buffer_d.code_name = ''
+        bpy.data.workspaces["Layout"].ernst.image.code_name = '//buf_post_material.frag'
         bpy.data.workspaces["Layout"].ernst.image.ichannel0.buffer_name = 'buffer_a'
-        bpy.data.workspaces["Layout"].ernst.buffer_a.code_name = 'buf_renderer.frag'
+        bpy.data.workspaces["Layout"].ernst.buffer_a.code_name = '//buf_renderer.frag'
 
         open_vscode(sgd.dir_trk_root)
 

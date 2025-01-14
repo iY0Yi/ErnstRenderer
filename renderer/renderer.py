@@ -70,12 +70,13 @@ class ErnstRenderEngine(RenderEngine):
                     # print('update.is_updated_transform: ', update.is_updated_transform)
                     # print('update.is_updated_shading: ', update.is_updated_shading)
                     # print('update.id.rna_type.name: ', update.id.rna_type.name)
-                    if not update.is_updated_geometry and not update.is_updated_transform and update.is_updated_shading:
-                        update.id.ernst.shader_proxy.set_dirty(True)
-                    if update.is_updated_geometry and update.is_updated_shading and update.is_updated_transform:
-                        if update.id.rna_type.name != 'World':
-                            print("RenderEngine: Materials updated.")
-                            self.need_compile = True
+                    if update.id.rna_type.name == 'Material':
+                        if not update.is_updated_geometry and not update.is_updated_transform and update.is_updated_shading:
+                            update.id.ernst.shader_proxy.set_dirty(True)
+                        if update.is_updated_geometry and update.is_updated_shading and update.is_updated_transform:
+                            if update.id.rna_type.name != 'World':
+                                print("RenderEngine: Materials updated.")
+                                self.need_compile = True
 
             if depsgraph.id_type_updated('COLLECTION'):
                 for update in depsgraph.updates:
@@ -96,54 +97,56 @@ class ErnstRenderEngine(RenderEngine):
                         break
                     if update.is_updated_geometry and not update.is_updated_transform:
                         # if ubo.enabled:
-                        obj = update.id
-                        if obj.ernst.type == 'SDF_3D_CAPSULE'\
-                        or obj.ernst.type == 'SDF_3D_TORUS'\
-                        or obj.ernst.type == 'SDF_3D_TORUS_CAPPED'\
-                        or obj.ernst.type == 'SDF_3D_CONE'\
-                        or obj.ernst.type == 'SDF_3D_CONE_ROUND'\
-                        or obj.ernst.type == 'SDF_3D_CURVE_QUADRATIC'\
-                        or obj.ernst.type == 'LIGHT_DIRECTIONAL'\
-                        or obj.ernst.type == 'CAMERA'\
-                        or obj.ernst.type == 'SDF_3D_CYLINDER_PIE':
-                            print("RenderEngine: Objects updated.")
-                            obj.ernst.shader_proxy.props.set_dirty(True)
-
-                    if not update.is_updated_geometry and update.is_updated_transform:
-                        # print("RenderEngine: Objects transform updated.")
-                        if ubo.enabled:
+                        if update.id.rna_type.name == 'Object':
                             obj = update.id
-                            if obj.ernst.type == 'SDF_3D_SPHERE'\
-                            or obj.ernst.type == 'SDF_3D_BOX'\
-                            or obj.ernst.type == 'SDF_3D_ELLIPSOID'\
-                            or obj.ernst.type == 'SDF_3D_CAPSULE'\
-                            or obj.ernst.type == 'SDF_3D_CYLINDER'\
-                            or obj.ernst.type == 'SDF_3D_CYLINDER_PIE'\
+                            if obj.ernst.type == 'SDF_3D_CAPSULE'\
                             or obj.ernst.type == 'SDF_3D_TORUS'\
                             or obj.ernst.type == 'SDF_3D_TORUS_CAPPED'\
                             or obj.ernst.type == 'SDF_3D_CONE'\
                             or obj.ernst.type == 'SDF_3D_CONE_ROUND'\
                             or obj.ernst.type == 'SDF_3D_CURVE_QUADRATIC'\
-                            or obj.ernst.type == 'SDF_3D_UBER'\
-                            or obj.ernst.type == 'SDF_3D_INSTANCE'\
-                            or obj.ernst.type == 'SDF_2D_CIRCLE'\
-                            or obj.ernst.type == 'SDF_2D_UBER'\
                             or obj.ernst.type == 'LIGHT_DIRECTIONAL'\
                             or obj.ernst.type == 'CAMERA'\
-                            or obj.ernst.type == 'SDF_2D_BOX':
-                                print("RenderEngine: Objects updated 2.", obj.name)
+                            or obj.ernst.type == 'SDF_3D_CYLINDER_PIE':
+                                print("RenderEngine: Objects updated.")
                                 obj.ernst.shader_proxy.props.set_dirty(True)
 
-                            pmods = obj.ernst.pmods.pmod
-                            for pmod in pmods.values():
-                                pmd = pmod.get_pmod()
-                                if type(pmd).__name__ == 'ERNST_PG_PModifier_Translation'\
-                                or type(pmd).__name__ == 'ERNST_PG_PModifier_Rotation'\
-                                or type(pmd).__name__ == 'ERNST_PG_PModifier_TRVsTranslation'\
-                                or type(pmd).__name__ == 'ERNST_PG_PModifier_TRVsRotation'\
-                                or type(pmd).__name__ == 'ERNST_PG_PModifier_IKArmature':
-                                    print("RenderEngine: Pmods updated.")
-                                    pmd.set_dirty(True)
+                    if not update.is_updated_geometry and update.is_updated_transform:
+                        # print("RenderEngine: Objects transform updated.")
+                        if ubo.enabled:
+                            if update.id.rna_type.name == 'Object':
+                                obj = update.id
+                                if obj.ernst.type == 'SDF_3D_SPHERE'\
+                                or obj.ernst.type == 'SDF_3D_BOX'\
+                                or obj.ernst.type == 'SDF_3D_ELLIPSOID'\
+                                or obj.ernst.type == 'SDF_3D_CAPSULE'\
+                                or obj.ernst.type == 'SDF_3D_CYLINDER'\
+                                or obj.ernst.type == 'SDF_3D_CYLINDER_PIE'\
+                                or obj.ernst.type == 'SDF_3D_TORUS'\
+                                or obj.ernst.type == 'SDF_3D_TORUS_CAPPED'\
+                                or obj.ernst.type == 'SDF_3D_CONE'\
+                                or obj.ernst.type == 'SDF_3D_CONE_ROUND'\
+                                or obj.ernst.type == 'SDF_3D_CURVE_QUADRATIC'\
+                                or obj.ernst.type == 'SDF_3D_UBER'\
+                                or obj.ernst.type == 'SDF_3D_INSTANCE'\
+                                or obj.ernst.type == 'SDF_2D_CIRCLE'\
+                                or obj.ernst.type == 'SDF_2D_UBER'\
+                                or obj.ernst.type == 'LIGHT_DIRECTIONAL'\
+                                or obj.ernst.type == 'CAMERA'\
+                                or obj.ernst.type == 'SDF_2D_BOX':
+                                    print("RenderEngine: Objects updated 2.", obj.name)
+                                    obj.ernst.shader_proxy.props.set_dirty(True)
+
+                                pmods = obj.ernst.pmods.pmod
+                                for pmod in pmods.values():
+                                    pmd = pmod.get_pmod()
+                                    if type(pmd).__name__ == 'ERNST_PG_PModifier_Translation'\
+                                    or type(pmd).__name__ == 'ERNST_PG_PModifier_Rotation'\
+                                    or type(pmd).__name__ == 'ERNST_PG_PModifier_TRVsTranslation'\
+                                    or type(pmd).__name__ == 'ERNST_PG_PModifier_TRVsRotation'\
+                                    or type(pmd).__name__ == 'ERNST_PG_PModifier_IKArmature':
+                                        print("RenderEngine: Pmods updated.")
+                                        pmd.set_dirty(True)
 
             if not self.need_compile:
                 current_objects_names = [obj.name for obj in bpy.context.scene.objects if obj.ernst.is_ernst_obj]

@@ -20,7 +20,7 @@ def force_compile(self, context):
 
 def check(self, context):
     global need_analyze
-    print('check()')
+
     need_analyze = True
 
 def update_filestamps():

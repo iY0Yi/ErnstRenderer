@@ -56,7 +56,8 @@ class ERNST_PG_Camera(PropertyGroup, ERNST_PG_Primitive_Abstract):
             ubo.add_vec4(u_names["quaternion"])
             ubo.add_vec4(u_names["props"])
         else:
-            code_u_names =  f'uniform vec3 {u_names["position"]};\n'
+            code_u_names = '\n'
+            code_u_names += f'uniform vec3 {u_names["position"]};\n'
             code_u_names += f'uniform vec3 {u_names["pivot"]};\n'
             code_u_names += f'uniform vec4 {u_names["quaternion"]};\n'
             code_u_names += f'uniform bool {u_names["is_perspective"]};\n'
